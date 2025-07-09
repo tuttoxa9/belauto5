@@ -14,8 +14,7 @@ import { Calculator, CreditCard, CheckCircle, Building, Percent, Clock, DollarSi
 import { Checkbox } from "@/components/ui/checkbox"
 import { useUsdBynRate } from "@/components/providers/usd-byn-rate-provider"
 import { convertUsdToByn } from "@/lib/utils"
-import { doc, getDoc, addDoc, collection } from "firebase/firestore"
-import { db } from "@/lib/firebase"
+import { database } from "@/lib/supabase"
 import CreditConditions from "@/components/credit-conditions"
 import { getCachedImageUrl } from "@/lib/image-cache"
 
@@ -85,11 +84,10 @@ export default function CreditPage() {
 
   const loadSettings = async () => {
     try {
-      const doc_ref = doc(db, "pages", "credit")
-      const doc_snap = await getDoc(doc_ref)
+      const data = await database.settings.get("credit_page")
 
-      if (doc_snap.exists()) {
-        setSettings(doc_snap.data() as CreditPageSettings)
+      if (data) {
+        setSettings(data as CreditPageSettings)
       } else {
         // Default fallback data only if no data exists
         setSettings({
@@ -250,12 +248,11 @@ export default function CreditPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      // Сохраняем в Firebase
-      await addDoc(collection(db, "leads"), {
+      // Сохраняем в Supabase
+      await database.leads.create({
         ...creditForm,
-        type: "credit_request",
-        status: "new",
-        createdAt: new Date(),
+        message: `${creditForm.message || ''}\n\nДанные кредитной заявки:\nСтоимость автомобиля: ${creditForm.carPrice}\nПервоначальный взнос: ${creditForm.downPayment}\nСрок кредита: ${creditForm.loanTerm} месяцев\nПредпочитаемый банк: ${creditForm.bank}`,
+        status: "new"
       })
 
       // Отправляем уведомление в Telegram

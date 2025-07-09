@@ -3,8 +3,7 @@
 import type React from "react"
 import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
-import { doc, getDoc } from "firebase/firestore"
-import { db } from "@/lib/firebase"
+import { database } from "@/lib/supabase"
 import { getCachedImageUrl } from "@/lib/image-cache"
 import { Percent, Clock, Building, CreditCard, CheckCircle, DollarSign, FileText, Users, Zap, Award, Target, Briefcase, TrendingUp, Handshake, CheckSquare, Coins, Timer, Heart, Shield, TrendingDown } from "lucide-react"
 
@@ -74,17 +73,13 @@ export default function CreditConditions() {
 
   const loadConditions = async () => {
     try {
-      const docRef = doc(db, "settings", "credit-conditions")
-      const docSnap = await getDoc(docRef)
+      const data = await database.settings.get("credit_conditions")
 
-      if (docSnap.exists()) {
-        const data = docSnap.data()
-        if (data.conditions && Array.isArray(data.conditions)) {
-          const activeConditions = data.conditions
-            .filter((condition: CreditCondition) => condition.isActive)
-            .sort((a: CreditCondition, b: CreditCondition) => a.order - b.order)
-          setConditions(activeConditions)
-        }
+      if (data && data.conditions && Array.isArray(data.conditions)) {
+        const activeConditions = data.conditions
+          .filter((condition: CreditCondition) => condition.isActive)
+          .sort((a: CreditCondition, b: CreditCondition) => a.order - b.order)
+        setConditions(activeConditions)
       }
     } catch (error) {
       console.error("Ошибка загрузки условий кредита:", error)

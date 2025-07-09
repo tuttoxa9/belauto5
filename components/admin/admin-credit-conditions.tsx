@@ -11,8 +11,7 @@ import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Plus, Edit, Trash2, Save, GripVertical, Percent, Clock, Building, CreditCard, CheckCircle, DollarSign, FileText, Users, Zap, Award, Target, Briefcase, TrendingUp, Handshake, CheckSquare, Coins, Timer, Heart, Shield, TrendingDown } from "lucide-react"
-import { doc, getDoc, setDoc } from "firebase/firestore"
-import { db } from "@/lib/firebase"
+import { database } from "@/lib/supabase"
 
 interface CreditCondition {
   id: string
@@ -89,14 +88,10 @@ export default function AdminCreditConditions() {
 
   const loadConditions = async () => {
     try {
-      const docRef = doc(db, "settings", "credit-conditions")
-      const docSnap = await getDoc(docRef)
+      const data = await database.settings.get("credit_conditions")
 
-      if (docSnap.exists()) {
-        const data = docSnap.data()
-        if (data.conditions && Array.isArray(data.conditions)) {
-          setConditions(data.conditions.sort((a: CreditCondition, b: CreditCondition) => a.order - b.order))
-        }
+      if (data && data.conditions && Array.isArray(data.conditions)) {
+        setConditions(data.conditions.sort((a: CreditCondition, b: CreditCondition) => a.order - b.order))
       }
     } catch (error) {
       console.error("Ошибка загрузки условий:", error)
@@ -108,8 +103,7 @@ export default function AdminCreditConditions() {
   const saveConditions = async (updatedConditions: CreditCondition[]) => {
     try {
       setSaving(true)
-      const docRef = doc(db, "settings", "credit-conditions")
-      await setDoc(docRef, { conditions: updatedConditions }, { merge: true })
+      await database.settings.set("credit_conditions", { conditions: updatedConditions })
       setConditions(updatedConditions)
     } catch (error) {
       console.error("Ошибка сохранения условий:", error)

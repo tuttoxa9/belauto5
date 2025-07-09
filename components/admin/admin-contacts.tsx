@@ -1,17 +1,32 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { doc, getDoc, setDoc } from "firebase/firestore"
-import { db } from "@/lib/firebase"
+import { database, ContactData } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Save, Loader2 } from "lucide-react"
 
+// Локальная функция для кэш-инвалидации
+const createCacheInvalidator = (collection: string) => {
+  return {
+    onCreate: async (id: string) => {
+      console.log(`Created ${collection} with id: ${id}`)
+    },
+    onUpdate: async (id: string) => {
+      console.log(`Updated ${collection} with id: ${id}`)
+    },
+    onDelete: async (id: string) => {
+      console.log(`Deleted ${collection} with id: ${id}`)
+    }
+  }
+}
+
 export default function AdminContacts() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const cacheInvalidator = createCacheInvalidator('contacts')
   const [contactsData, setContactsData] = useState({
     title: "Контакты",
     subtitle: "Свяжитесь с нами любым удобным способом",
@@ -51,9 +66,9 @@ export default function AdminContacts() {
 
   const loadContactsData = async () => {
     try {
-      const contactsDoc = await getDoc(doc(db, "pages", "contacts"))
-      if (contactsDoc.exists()) {
-        setContactsData(contactsDoc.data())
+      const data = await database.contacts.get()
+      if (data) {
+        setContactsData(data)
       }
     } catch (error) {
       console.error("Ошибка загрузки данных:", error)
@@ -65,7 +80,8 @@ export default function AdminContacts() {
   const saveContactsData = async () => {
     setSaving(true)
     try {
-      await setDoc(doc(db, "pages", "contacts"), contactsData)
+      await database.contacts.set(contactsData)
+      await cacheInvalidator.onUpdate('contacts')
       alert("Данные сохранены!")
     } catch (error) {
       console.error("Ошибка сохранения:", error)

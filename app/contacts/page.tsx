@@ -4,8 +4,7 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { doc, getDoc, addDoc, collection } from "firebase/firestore"
-import { db } from "@/lib/firebase"
+import { database } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -65,9 +64,9 @@ export default function ContactsPage() {
       // Симулируем минимальное время загрузки для лучшего UX
       await new Promise(resolve => setTimeout(resolve, 1000))
 
-      const contactsDoc = await getDoc(doc(db, "pages", "contacts"))
-      if (contactsDoc.exists()) {
-        setContactsData(contactsDoc.data() as typeof contactsData)
+      const data = await database.contacts.get()
+      if (data) {
+        setContactsData(data)
       }
     } catch (error) {
       console.error("Ошибка загрузки данных:", error)
@@ -99,10 +98,9 @@ export default function ContactsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      // Сохраняем в Firebase
-      await addDoc(collection(db, "contact-forms"), {
+      // Сохраняем в Supabase
+      await database.contactForms.create({
         ...contactForm,
-        timestamp: new Date(),
         status: "new"
       })
 

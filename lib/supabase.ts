@@ -78,6 +78,54 @@ export interface Story {
   updated_at?: string
 }
 
+// Типы для контактов
+export interface ContactData {
+  id: string
+  title: string
+  subtitle: string
+  address: string
+  addressNote: string
+  phone: string
+  phoneNote: string
+  email: string
+  emailNote: string
+  workingHours: {
+    weekdays: string
+    weekends: string
+  }
+  socialMedia: {
+    instagram?: {
+      name: string
+      url: string
+    }
+    telegram?: {
+      name: string
+      url: string
+    }
+    avby?: {
+      name: string
+      url: string
+    }
+    tiktok?: {
+      name: string
+      url: string
+    }
+  }
+  created_at?: string
+  updated_at?: string
+}
+
+// Типы для контактных форм
+export interface ContactForm {
+  id: string
+  name: string
+  phone: string
+  message: string
+  status: 'new' | 'read' | 'responded'
+  created_at?: string
+  updated_at?: string
+}
+
 // Утилиты для работы с базой данных
 export const database = {
   // Автомобили
@@ -315,6 +363,74 @@ export const database = {
     async delete(id: string): Promise<void> {
       const { error } = await supabase
         .from('stories')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+    }
+  },
+
+  // Контакты
+  contacts: {
+    async get(): Promise<ContactData | null> {
+      const { data, error } = await supabase
+        .from('pages')
+        .select('*')
+        .eq('page_type', 'contacts')
+        .single()
+
+      if (error && error.code !== 'PGRST116') throw error
+      return data?.content || null
+    },
+
+    async set(contactData: Omit<ContactData, 'id' | 'created_at' | 'updated_at'>): Promise<void> {
+      const { error } = await supabase
+        .from('pages')
+        .upsert({
+          page_type: 'contacts',
+          content: contactData,
+          updated_at: new Date().toISOString()
+        })
+
+      if (error) throw error
+    }
+  },
+
+  // Контактные формы
+  contactForms: {
+    async getAll(): Promise<ContactForm[]> {
+      const { data, error } = await supabase
+        .from('contact_forms')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      return data || []
+    },
+
+    async create(form: Omit<ContactForm, 'id' | 'created_at' | 'updated_at'>): Promise<ContactForm> {
+      const { data, error } = await supabase
+        .from('contact_forms')
+        .insert([{ ...form, status: 'new' }])
+        .select()
+        .single()
+
+      if (error) throw error
+      return data
+    },
+
+    async updateStatus(id: string, status: ContactForm['status']): Promise<void> {
+      const { error } = await supabase
+        .from('contact_forms')
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq('id', id)
+
+      if (error) throw error
+    },
+
+    async delete(id: string): Promise<void> {
+      const { error } = await supabase
+        .from('contact_forms')
         .delete()
         .eq('id', id)
 

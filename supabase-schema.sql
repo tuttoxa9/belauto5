@@ -67,6 +67,26 @@ CREATE TABLE stories (
   updated_at timestamp with time zone DEFAULT now()
 );
 
+-- Таблица страниц (для контентных страниц)
+CREATE TABLE pages (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  page_type text UNIQUE NOT NULL,
+  content jsonb NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+
+-- Таблица контактных форм
+CREATE TABLE contact_forms (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  name text NOT NULL,
+  phone text NOT NULL,
+  message text NOT NULL,
+  status text DEFAULT 'new' CHECK (status IN ('new', 'read', 'responded')),
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+
 -- Создание индексов для оптимизации запросов
 CREATE INDEX idx_cars_make_model ON cars(make, model);
 CREATE INDEX idx_cars_year ON cars(year);
@@ -77,6 +97,9 @@ CREATE INDEX idx_leads_status ON leads(status);
 CREATE INDEX idx_leads_created_at ON leads(created_at);
 CREATE INDEX idx_reviews_is_published ON reviews(is_published);
 CREATE INDEX idx_stories_is_published ON stories(is_published);
+CREATE INDEX idx_pages_page_type ON pages(page_type);
+CREATE INDEX idx_contact_forms_status ON contact_forms(status);
+CREATE INDEX idx_contact_forms_created_at ON contact_forms(created_at);
 
 -- Создание функции для автоматического обновления updated_at
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -103,12 +126,20 @@ CREATE TRIGGER update_reviews_updated_at BEFORE UPDATE ON reviews
 CREATE TRIGGER update_stories_updated_at BEFORE UPDATE ON stories
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+CREATE TRIGGER update_pages_updated_at BEFORE UPDATE ON pages
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_contact_forms_updated_at BEFORE UPDATE ON contact_forms
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 -- Настройка Row Level Security (RLS)
 ALTER TABLE cars ENABLE ROW LEVEL SECURITY;
 ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE leads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE stories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE contact_forms ENABLE ROW LEVEL SECURITY;
 
 -- Политики для публичного чтения
 CREATE POLICY "Public read access for cars" ON cars
@@ -119,6 +150,9 @@ CREATE POLICY "Public read access for published reviews" ON reviews
 
 CREATE POLICY "Public read access for published stories" ON stories
     FOR SELECT USING (is_published = true);
+
+CREATE POLICY "Public read access for pages" ON pages
+    FOR SELECT USING (true);
 
 -- Политики для авторизованных пользователей (админы)
 CREATE POLICY "Admin full access to cars" ON cars
@@ -136,8 +170,18 @@ CREATE POLICY "Admin full access to reviews" ON reviews
 CREATE POLICY "Admin full access to stories" ON stories
     FOR ALL USING (auth.role() = 'authenticated');
 
+CREATE POLICY "Admin full access to pages" ON pages
+    FOR ALL USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Admin full access to contact forms" ON contact_forms
+    FOR ALL USING (auth.role() = 'authenticated');
+
 -- Политика для создания лидов (заявки от клиентов)
 CREATE POLICY "Anyone can create leads" ON leads
+    FOR INSERT WITH CHECK (true);
+
+-- Политика для создания контактных форм (заявки от клиентов)
+CREATE POLICY "Anyone can create contact forms" ON contact_forms
     FOR INSERT WITH CHECK (true);
 
 -- Создание storage bucket для изображений

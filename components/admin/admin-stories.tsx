@@ -100,7 +100,14 @@ export default function AdminStories() {
   const saveSettings = async () => {
     try {
       console.log('Saving stories settings...', settings)
+
+      // Сохраняем настройки для компонента Stories
       await database.stories.saveSettings(settings)
+
+      // Также обновляем настройки в admin-settings для синхронизации
+      const adminStoriesSettings = await database.settings.get('stories_settings') || {}
+      await database.settings.set('stories_settings', { ...adminStoriesSettings, ...settings })
+
       console.log('Stories settings saved successfully')
       alert("Настройки сохранены!")
     } catch (error) {

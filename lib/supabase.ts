@@ -438,6 +438,9 @@ export const database = {
 
     async saveSettings(settings: StoriesSettings): Promise<void> {
       await database.settings.set('stories_settings', settings)
+      // Также обновляем в admin-settings для синхронизации
+      const adminSettings = await database.settings.get('stories_settings') || {}
+      await database.settings.set('stories_settings', { ...adminSettings, ...settings })
     }
   },
 

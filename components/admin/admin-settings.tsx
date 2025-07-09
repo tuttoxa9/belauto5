@@ -64,17 +64,21 @@ export default function AdminSettings() {
 
   const loadSettings = async () => {
     try {
-      const [mainDoc, homepageDoc, storiesDoc] = await Promise.all([
-        getDoc(doc(db, "settings", "main")),
-        getDoc(doc(db, "settings", "homepage")),
-        getDoc(doc(db, "settings", "stories")),
+      console.log('Loading admin settings...')
+
+      const [mainSettings, homepageSettings, storiesSettings] = await Promise.all([
+        database.settings.get('main_settings'),
+        database.settings.get('homepage_settings'),
+        database.settings.get('stories_settings'),
       ])
 
       setSettings({
-        main: mainDoc.exists() ? mainDoc.data() : settings.main,
-        homepage: homepageDoc.exists() ? homepageDoc.data() : settings.homepage,
-        stories: storiesDoc.exists() ? storiesDoc.data() : settings.stories,
+        main: mainSettings || settings.main,
+        homepage: homepageSettings || settings.homepage,
+        stories: storiesSettings || settings.stories,
       })
+
+      console.log('Admin settings loaded successfully')
     } catch (error) {
       console.error("Ошибка загрузки настроек:", error)
     } finally {
@@ -85,16 +89,20 @@ export default function AdminSettings() {
   const saveSettings = async () => {
     setSaving(true)
     try {
+      console.log('Saving admin settings...', settings)
+
       await Promise.all([
-        setDoc(doc(db, "settings", "main"), settings.main),
-        setDoc(doc(db, "settings", "homepage"), settings.homepage),
-        setDoc(doc(db, "settings", "stories"), settings.stories),
+        database.settings.set('main_settings', settings.main),
+        database.settings.set('homepage_settings', settings.homepage),
+        database.settings.set('stories_settings', settings.stories),
       ])
+
       await cacheInvalidator.onUpdate('main')
+      console.log('Admin settings saved successfully')
       alert("Настройки сохранены!")
     } catch (error) {
-      console.error("Ошибка сохранения:", error)
-      alert("Ошибка сохранения настроек")
+      console.error("Ошибка сохранения настроек:", error)
+      alert(`Ошибка сохранения настроек: ${error.message || error}`)
     } finally {
       setSaving(false)
     }

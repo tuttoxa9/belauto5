@@ -99,11 +99,13 @@ export default function AdminStories() {
 
   const saveSettings = async () => {
     try {
+      console.log('Saving stories settings...', settings)
       await database.stories.saveSettings(settings)
+      console.log('Stories settings saved successfully')
       alert("Настройки сохранены!")
     } catch (error) {
-      console.error("Ошибка сохранения настроек:", error)
-      alert("Ошибка сохранения настроек")
+      console.error("Ошибка сохранения настроек историй:", error)
+      alert(`Ошибка сохранения настроек: ${error.message || error}`)
     }
   }
 

@@ -242,8 +242,11 @@ export const database = {
         .eq('key', key)
         .single()
 
-      if (error) throw error
-      return data?.value
+      if (error && error.code !== 'PGRST116') {
+        console.error('Supabase settings get error:', error)
+        throw error
+      }
+      return data?.value || null
     },
 
     async set(key: string, value: any): Promise<void> {
@@ -252,12 +255,16 @@ export const database = {
         .upsert({
           key,
           value,
+          created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         }, {
           onConflict: 'key'
         })
 
-      if (error) throw error
+      if (error) {
+        console.error('Supabase settings error:', error)
+        throw error
+      }
     },
 
     async getAll(): Promise<Record<string, any>> {

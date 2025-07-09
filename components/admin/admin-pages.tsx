@@ -62,15 +62,19 @@ export default function AdminPages() {
   const savePages = async () => {
     setSaving(true)
     try {
+      console.log('Saving pages...', pages)
+
       await Promise.all([
         database.settings.set('page_about', pages.about),
         database.settings.set('page_credit', pages.credit),
         database.settings.set('page_leasing', pages.leasing),
       ])
+
+      console.log('Pages saved successfully')
       alert("Страницы сохранены!")
     } catch (error) {
-      console.error("Ошибка сохранения:", error)
-      alert("Ошибка сохранения страниц")
+      console.error("Ошибка сохранения страниц:", error)
+      alert(`Ошибка сохранения страниц: ${error.message || error}`)
     } finally {
       setSaving(false)
     }

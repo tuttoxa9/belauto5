@@ -60,6 +60,8 @@ export default function AdminHomepage() {
   const saveSettings = async () => {
     setSaving(true)
     try {
+      console.log('Saving homepage settings...', settings)
+
       await Promise.all([
         database.settings.set('heroTitle', settings.heroTitle),
         database.settings.set('heroSubtitle', settings.heroSubtitle),
@@ -67,10 +69,12 @@ export default function AdminHomepage() {
         database.settings.set('ctaTitle', settings.ctaTitle),
         database.settings.set('ctaSubtitle', settings.ctaSubtitle),
       ])
+
+      console.log('Homepage settings saved successfully')
       alert("Настройки главной страницы сохранены!")
     } catch (error) {
-      console.error("Ошибка сохранения:", error)
-      alert("Ошибка сохранения настроек")
+      console.error("Ошибка сохранения настроек главной страницы:", error)
+      alert(`Ошибка сохранения настроек: ${error.message || error}`)
     } finally {
       setSaving(false)
     }

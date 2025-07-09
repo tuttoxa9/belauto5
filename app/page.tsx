@@ -12,8 +12,7 @@ import CarCard from "@/components/car-card"
 import CarCardSkeleton from "@/components/car-card-skeleton"
 import FadeInImage from "@/components/fade-in-image"
 import { CheckCircle, Check } from "lucide-react"
-import { collection, query, orderBy, limit, getDocs, doc, getDoc, addDoc } from "firebase/firestore"
-import { db } from "@/lib/firebase"
+import { database, Car } from "@/lib/supabase"
 import { getCachedImageUrl } from "@/lib/image-cache"
 
 interface HomepageSettings {
@@ -23,8 +22,6 @@ interface HomepageSettings {
   ctaTitle: string
   ctaSubtitle: string
 }
-
-// Моковые данные удалены
 
 export default function HomePage() {
   const [searchForm, setSearchForm] = useState({
@@ -39,7 +36,7 @@ export default function HomePage() {
     phone: "+375",
   })
 
-  const [cars, setCars] = useState([])
+  const [cars, setCars] = useState<Car[]>([])
   const [loadingCars, setLoadingCars] = useState(true)
   const [settings, setSettings] = useState<HomepageSettings>({
     heroTitle: "Найди свой автомобиль надежным способом",
@@ -56,14 +53,20 @@ export default function HomePage() {
 
   const loadHomepageSettings = async () => {
     try {
-      const settingsDoc = await getDoc(doc(db, "settings", "homepage"))
-      if (settingsDoc.exists()) {
-        const data = settingsDoc.data() as Partial<HomepageSettings>
-        setSettings((prev) => ({
-          ...prev,
-          ...data,
-        }))
-      }
+      const heroTitle = await database.settings.get('heroTitle')
+      const heroSubtitle = await database.settings.get('heroSubtitle')
+      const heroButtonText = await database.settings.get('heroButtonText')
+      const ctaTitle = await database.settings.get('ctaTitle')
+      const ctaSubtitle = await database.settings.get('ctaSubtitle')
+
+      setSettings(prev => ({
+        ...prev,
+        ...(heroTitle && { heroTitle }),
+        ...(heroSubtitle && { heroSubtitle }),
+        ...(heroButtonText && { heroButtonText }),
+        ...(ctaTitle && { ctaTitle }),
+        ...(ctaSubtitle && { ctaSubtitle }),
+      }))
     } catch (error) {
       console.error("Ошибка загрузки настроек главной страницы:", error)
     }
@@ -72,16 +75,10 @@ export default function HomePage() {
   const loadFeaturedCars = async () => {
     try {
       setLoadingCars(true)
-      const carsQuery = query(collection(db, "cars"), orderBy("createdAt", "desc"), limit(4))
-      const snapshot = await getDocs(carsQuery)
-      const carsData = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }))
-
-      if (carsData.length > 0) {
-        setCars(carsData as any)
-      }
+      const allCars = await database.cars.getAll()
+      // Берем первые 4 доступных автомобиля
+      const availableCars = allCars.filter(car => car.is_available).slice(0, 4)
+      setCars(availableCars)
     } catch (error) {
       console.error("Ошибка загрузки автомобилей:", error)
     } finally {
@@ -103,12 +100,11 @@ export default function HomePage() {
   const handleContactSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      // Сохраняем в Firebase
-      await addDoc(collection(db, "leads"), {
-        ...contactForm,
-        type: "car_selection",
-        status: "new",
-        createdAt: new Date(),
+      // Сохраняем в Supabase
+      await database.leads.create({
+        name: contactForm.name,
+        phone: contactForm.phone,
+        status: 'new'
       })
 
       // Отправляем уведомление в Telegram

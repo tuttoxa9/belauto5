@@ -36,19 +36,25 @@ export async function invalidateCache(params: CacheInvalidationParams): Promise<
   }
 }
 
-export function createCacheInvalidator(collection: string) {
+// Убеждаемся что функция экспортируется правильно
+export const createCacheInvalidator = (collection: string) => {
   return {
     onCreate: async (id: string) => {
-      // Ничего не делаем, Supabase handle это автоматически
       console.log(`Created ${collection} with id: ${id}`)
     },
     onUpdate: async (id: string) => {
-      // Ничего не делаем, Supabase handle это автоматически
       console.log(`Updated ${collection} with id: ${id}`)
     },
     onDelete: async (id: string) => {
-      // Ничего не делаем, Supabase handle это автоматически
       console.log(`Deleted ${collection} with id: ${id}`)
     }
   }
 }
+
+// Для совместимости добавим default export
+const cacheInvalidation = {
+  invalidateCache,
+  createCacheInvalidator
+}
+
+export default cacheInvalidation

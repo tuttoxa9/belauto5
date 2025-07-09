@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Edit, Trash2, Car } from "lucide-react"
+import { Plus, Edit, Trash2, Car as CarIcon } from "lucide-react"
 import ImageUpload from "@/components/admin/image-upload"
 
 export default function AdminCars() {
@@ -519,7 +519,7 @@ export default function AdminCars() {
 
       {cars.length === 0 && (
         <div className="text-center py-12">
-          <Car className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+          <CarIcon className="h-12 w-12 mx-auto text-gray-400 mb-4" />
           <p className="text-gray-500">Автомобили не добавлены</p>
         </div>
       )}

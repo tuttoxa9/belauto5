@@ -1,8 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { doc, getDoc, setDoc } from "firebase/firestore"
-import { db } from "@/lib/firebase"
+import { database } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -11,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Save, Loader2 } from "lucide-react"
 import AdminPrivacy from "./admin-privacy"
+import AdminHomepage from "./admin-homepage"
 
 export default function AdminPages() {
   const [loading, setLoading] = useState(true)
@@ -41,16 +41,16 @@ export default function AdminPages() {
 
   const loadPages = async () => {
     try {
-      const [aboutDoc, creditDoc, leasingDoc] = await Promise.all([
-        getDoc(doc(db, "pages", "about")),
-        getDoc(doc(db, "pages", "credit")),
-        getDoc(doc(db, "pages", "leasing")),
+      const [aboutPage, creditPage, leasingPage] = await Promise.all([
+        database.settings.get('page_about'),
+        database.settings.get('page_credit'),
+        database.settings.get('page_leasing'),
       ])
 
       setPages({
-        about: aboutDoc.exists() ? aboutDoc.data() : pages.about,
-        credit: creditDoc.exists() ? creditDoc.data() : pages.credit,
-        leasing: leasingDoc.exists() ? leasingDoc.data() : pages.leasing,
+        about: aboutPage || pages.about,
+        credit: creditPage || pages.credit,
+        leasing: leasingPage || pages.leasing,
       })
     } catch (error) {
       console.error("Ошибка загрузки страниц:", error)
@@ -63,9 +63,9 @@ export default function AdminPages() {
     setSaving(true)
     try {
       await Promise.all([
-        setDoc(doc(db, "pages", "about"), pages.about),
-        setDoc(doc(db, "pages", "credit"), pages.credit),
-        setDoc(doc(db, "pages", "leasing"), pages.leasing),
+        database.settings.set('page_about', pages.about),
+        database.settings.set('page_credit', pages.credit),
+        database.settings.set('page_leasing', pages.leasing),
       ])
       alert("Страницы сохранены!")
     } catch (error) {
@@ -94,13 +94,18 @@ export default function AdminPages() {
         </Button>
       </div>
 
-      <Tabs defaultValue="about" className="w-full">
+      <Tabs defaultValue="homepage" className="w-full">
         <TabsList>
+          <TabsTrigger value="homepage">Главная</TabsTrigger>
           <TabsTrigger value="about">О нас</TabsTrigger>
           <TabsTrigger value="credit">Кредит</TabsTrigger>
           <TabsTrigger value="leasing">Лизинг</TabsTrigger>
           <TabsTrigger value="privacy">Политика конфиденциальности</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="homepage" className="space-y-6">
+          <AdminHomepage />
+        </TabsContent>
 
         <TabsContent value="about" className="space-y-6">
           <Card>

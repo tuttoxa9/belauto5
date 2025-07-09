@@ -10,9 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Plus, Upload, Trash2, Edit, Eye, Link as LinkIcon, GripVertical } from "lucide-react"
-import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, query, orderBy, setDoc, getDoc } from "firebase/firestore"
-import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage"
-import { db, storage } from "@/lib/firebase"
+import { database, storage, SupabaseStory, StoriesSettings } from "@/lib/supabase"
 
 interface Story {
   id: string
@@ -23,11 +21,6 @@ interface Story {
   linkUrl?: string
   order: number
   createdAt: Date
-}
-
-interface StoriesSettings {
-  title: string
-  subtitle: string
 }
 
 // Локальная функция для кэш-инвалидации
@@ -76,12 +69,16 @@ export default function AdminStories() {
 
   const loadStories = async () => {
     try {
-      const storiesQuery = query(collection(db, "stories"), orderBy("order", "asc"))
-      const snapshot = await getDocs(storiesQuery)
-      const storiesData = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate() || new Date(),
+      const supabaseStories = await database.stories.getAll()
+      const storiesData = supabaseStories.map((story) => ({
+        id: story.id,
+        mediaUrl: story.media_url,
+        mediaType: story.media_type,
+        caption: story.caption,
+        subtitle: story.subtitle,
+        linkUrl: story.link_url,
+        order: story.order_index,
+        createdAt: story.created_at ? new Date(story.created_at) : new Date(),
       })) as Story[]
       setStories(storiesData)
     } catch (error) {
@@ -93,10 +90,8 @@ export default function AdminStories() {
 
   const loadSettings = async () => {
     try {
-      const settingsDoc = await getDoc(doc(db, "settings", "stories"))
-      if (settingsDoc.exists()) {
-        setSettings(settingsDoc.data() as StoriesSettings)
-      }
+      const storiesSettings = await database.stories.getSettings()
+      setSettings(storiesSettings)
     } catch (error) {
       console.error("Ошибка загрузки настроек:", error)
     }
@@ -104,7 +99,7 @@ export default function AdminStories() {
 
   const saveSettings = async () => {
     try {
-      await setDoc(doc(db, "settings", "stories"), settings)
+      await database.stories.saveSettings(settings)
       alert("Настройки сохранены!")
     } catch (error) {
       console.error("Ошибка сохранения настроек:", error)
@@ -146,12 +141,7 @@ export default function AdminStories() {
   }
 
   const uploadFile = async (file: File): Promise<string> => {
-    const timestamp = Date.now()
-    const fileName = `stories/${timestamp}_${file.name}`
-    const storageRef = ref(storage, fileName)
-
-    await uploadBytes(storageRef, file)
-    return await getDownloadURL(storageRef)
+    return await storage.uploadImage(file, 'stories')
   }
 
   const handleSubmit = async () => {
@@ -166,17 +156,16 @@ export default function AdminStories() {
       const mediaType = formData.file.type.startsWith('image/') ? 'image' : 'video'
       const nextOrder = stories && stories.length > 0 ? Math.max(...stories.map(s => s.order)) + 1 : 1
 
-      const docRef = await addDoc(collection(db, "stories"), {
-        mediaUrl,
-        mediaType,
+      await database.stories.create({
+        media_url: mediaUrl,
+        media_type: mediaType,
         caption: formData.caption,
-        subtitle: formData.subtitle || null,
-        linkUrl: formData.linkUrl || null,
-        order: nextOrder,
-        createdAt: new Date(),
+        subtitle: formData.subtitle || undefined,
+        link_url: formData.linkUrl || undefined,
+        order_index: nextOrder,
+        is_published: true,
       })
 
-      await cacheInvalidator.onCreate(docRef.id)
       setFormData({ caption: "", subtitle: "", linkUrl: "", file: null })
       setIsAddDialogOpen(false)
       loadStories()
@@ -193,21 +182,20 @@ export default function AdminStories() {
     if (!selectedStory) return
 
     try {
-      let updateData: any = {
+      let updateData: Partial<SupabaseStory> = {
         caption: formData.caption,
-        subtitle: formData.subtitle || null,
-        linkUrl: formData.linkUrl || null,
+        subtitle: formData.subtitle || undefined,
+        link_url: formData.linkUrl || undefined,
       }
 
       if (formData.file) {
         const mediaUrl = await uploadFile(formData.file)
         const mediaType = formData.file.type.startsWith('image/') ? 'image' : 'video'
-        updateData.mediaUrl = mediaUrl
-        updateData.mediaType = mediaType
+        updateData.media_url = mediaUrl
+        updateData.media_type = mediaType
       }
 
-      await updateDoc(doc(db, "stories", selectedStory.id), updateData)
-      await cacheInvalidator.onUpdate(selectedStory.id)
+      await database.stories.update(selectedStory.id, updateData)
       setIsEditDialogOpen(false)
       setSelectedStory(null)
       setFormData({ caption: "", subtitle: "", linkUrl: "", file: null })
@@ -221,8 +209,16 @@ export default function AdminStories() {
 
   const handleDelete = async (story: Story) => {
     try {
-      await deleteDoc(doc(db, "stories", story.id))
-      await cacheInvalidator.onDelete(story.id)
+      // Удаляем изображение из storage если нужно
+      if (story.mediaUrl) {
+        try {
+          await storage.deleteImage(story.mediaUrl)
+        } catch (imageError) {
+          console.warn("Не удалось удалить изображение:", imageError)
+        }
+      }
+
+      await database.stories.delete(story.id)
       loadStories()
       alert("История удалена!")
     } catch (error) {

@@ -68,14 +68,23 @@ export interface Review {
 }
 
 // Типы для историй
-export interface Story {
+export interface SupabaseStory {
   id: string
-  title: string
-  content: string
-  image_url?: string
+  media_url: string
+  media_type: "image" | "video"
+  caption: string
+  subtitle?: string
+  link_url?: string
+  order_index: number
   is_published: boolean
   created_at?: string
   updated_at?: string
+}
+
+// Типы для настроек историй
+export interface StoriesSettings {
+  title: string
+  subtitle: string
 }
 
 // Типы для контактов
@@ -358,31 +367,31 @@ export const database = {
 
   // Истории
   stories: {
-    async getAll(): Promise<Story[]> {
+    async getAll(): Promise<SupabaseStory[]> {
       const { data, error } = await supabase
         .from('stories')
         .select('*')
-        .order('created_at', { ascending: false })
+        .order('order_index', { ascending: true })
 
       if (error) throw error
       return data || []
     },
 
-    async getPublished(): Promise<Story[]> {
+    async getPublished(): Promise<SupabaseStory[]> {
       const { data, error } = await supabase
         .from('stories')
         .select('*')
         .eq('is_published', true)
-        .order('created_at', { ascending: false })
+        .order('order_index', { ascending: true })
 
       if (error) throw error
       return data || []
     },
 
-    async create(story: Omit<Story, 'id' | 'created_at' | 'updated_at'>): Promise<Story> {
+    async create(story: Omit<SupabaseStory, 'id' | 'created_at' | 'updated_at'>): Promise<SupabaseStory> {
       const { data, error } = await supabase
         .from('stories')
-        .insert([story])
+        .insert([{ ...story, is_published: true }])
         .select()
         .single()
 
@@ -390,7 +399,7 @@ export const database = {
       return data
     },
 
-    async update(id: string, updates: Partial<Story>): Promise<Story> {
+    async update(id: string, updates: Partial<SupabaseStory>): Promise<SupabaseStory> {
       const { data, error } = await supabase
         .from('stories')
         .update({ ...updates, updated_at: new Date().toISOString() })
@@ -409,6 +418,19 @@ export const database = {
         .eq('id', id)
 
       if (error) throw error
+    },
+
+    // Настройки историй
+    async getSettings(): Promise<StoriesSettings> {
+      const settings = await database.settings.get('stories_settings')
+      return settings || {
+        title: "Свежие поступления и новости",
+        subtitle: "Следите за нашими обновлениями",
+      }
+    },
+
+    async saveSettings(settings: StoriesSettings): Promise<void> {
+      await database.settings.set('stories_settings', settings)
     }
   },
 

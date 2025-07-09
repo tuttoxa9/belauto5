@@ -4,8 +4,7 @@ import { useState, useEffect } from "react"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { ChevronLeft, ChevronRight, Play } from "lucide-react"
 import FadeInImage from "@/components/fade-in-image"
-import { collection, query, orderBy, getDocs, doc, getDoc } from "firebase/firestore"
-import { db } from "@/lib/firebase"
+import { database, SupabaseStory, StoriesSettings } from "@/lib/supabase"
 
 interface Story {
   id: string
@@ -16,11 +15,6 @@ interface Story {
   linkUrl?: string
   order: number
   createdAt: Date
-}
-
-interface StoriesSettings {
-  title: string
-  subtitle: string
 }
 
 export default function Stories() {
@@ -43,10 +37,8 @@ export default function Stories() {
 
   const loadSettings = async () => {
     try {
-      const settingsDoc = await getDoc(doc(db, "settings", "stories"))
-      if (settingsDoc.exists()) {
-        setSettings(settingsDoc.data() as StoriesSettings)
-      }
+      const storiesSettings = await database.stories.getSettings()
+      setSettings(storiesSettings)
     } catch (error) {
       console.error("Ошибка загрузки настроек историй:", error)
     }
@@ -54,12 +46,16 @@ export default function Stories() {
 
   const loadStories = async () => {
     try {
-      const storiesQuery = query(collection(db, "stories"), orderBy("order", "asc"))
-      const snapshot = await getDocs(storiesQuery)
-      const storiesData = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate() || new Date(),
+      const supabaseStories = await database.stories.getPublished()
+      const storiesData = supabaseStories.map((story) => ({
+        id: story.id,
+        mediaUrl: story.media_url,
+        mediaType: story.media_type,
+        caption: story.caption,
+        subtitle: story.subtitle,
+        linkUrl: story.link_url,
+        order: story.order_index,
+        createdAt: story.created_at ? new Date(story.created_at) : new Date(),
       })) as Story[]
 
       setStories(storiesData)

@@ -9,12 +9,12 @@ import { Upload, X, Loader2 } from "lucide-react"
 
 interface ImageUploadProps {
   onUpload: (url: string) => void
-  path: string
+  folder?: string // папка в supabase storage (cars, banks, leasing)
   currentImage?: string
   className?: string
 }
 
-export default function ImageUpload({ onUpload, path, currentImage, className }: ImageUploadProps) {
+export default function ImageUpload({ onUpload, folder = 'images', currentImage, className }: ImageUploadProps) {
   const [uploading, setUploading] = useState(false)
   const [preview, setPreview] = useState<string | null>(currentImage || null)
 
@@ -25,7 +25,7 @@ export default function ImageUpload({ onUpload, path, currentImage, className }:
 
       setUploading(true)
       try {
-        const url = await storage.uploadImage(file, 'images')
+        const url = await storage.uploadImage(file, folder)
         setPreview(url)
         onUpload(url)
       } catch (error) {
@@ -35,7 +35,7 @@ export default function ImageUpload({ onUpload, path, currentImage, className }:
         setUploading(false)
       }
     },
-    [onUpload, path],
+    [onUpload, folder],
   )
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({

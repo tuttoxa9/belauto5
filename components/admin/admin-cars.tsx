@@ -335,7 +335,7 @@ export default function AdminCars() {
                     <ImageUpload
                       key={index}
                       currentImage={url}
-                      path="cars"
+                      folder="cars"
                       onUpload={(newUrl) => updateImageUrl(index, newUrl)}
                       className="col-span-1"
                     />

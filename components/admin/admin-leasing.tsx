@@ -477,7 +477,8 @@ export default function AdminLeasing() {
                 <div>
                   <Label>Логотип компании</Label>
                   <ImageUpload
-                    onImageUploaded={(url) => updateLeasingCompany(index, "logoUrl", url)}
+                    onUpload={(url) => updateLeasingCompany(index, "logoUrl", url)}
+                    folder="leasing"
                     currentImage={company.logoUrl}
                   />
                 </div>

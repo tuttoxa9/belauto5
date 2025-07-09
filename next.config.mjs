@@ -17,7 +17,7 @@ const nextConfig = {
   },
   images: {
     unoptimized: true,
-    domains: ['localhost', 'firebasestorage.googleapis.com'],
+    domains: ['localhost', 'your-project-id.supabase.co'],
   },
   experimental: {
     esmExternals: 'loose',
@@ -30,7 +30,7 @@ const nextConfig = {
   headers: async () => {
     return [
       {
-        source: '/api/firestore/:path*',
+        source: '/api/supabase/:path*',
         headers: [
           {
             key: 'Cache-Control',

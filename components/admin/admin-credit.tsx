@@ -268,7 +268,7 @@ export default function AdminCredit() {
                       <Label className="text-white">Логотип банка</Label>
                       <ImageUpload
                         onUpload={(url) => updatePartner(index, "logoUrl", url)}
-                        path={`banks/${partner.name}`}
+                        folder="banks"
                         currentImage={partner.logoUrl}
                         className="mt-2"
                       />

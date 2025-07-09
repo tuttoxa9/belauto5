@@ -126,6 +126,46 @@ export interface ContactForm {
   updated_at?: string
 }
 
+// Типы для банков
+export interface Bank {
+  id: string
+  name: string
+  logo_url?: string
+  description?: string
+  min_rate: number
+  max_rate: number
+  min_amount: number
+  max_amount: number
+  min_term_months: number
+  max_term_months: number
+  features: string[]
+  requirements: string[]
+  is_active: boolean
+  order_index: number
+  created_at?: string
+  updated_at?: string
+}
+
+// Типы для лизинговых компаний
+export interface LeasingCompany {
+  id: string
+  name: string
+  logo_url?: string
+  description?: string
+  min_rate: number
+  max_rate: number
+  min_advance_percent: number
+  max_advance_percent: number
+  min_term_months: number
+  max_term_months: number
+  features: string[]
+  requirements: string[]
+  is_active: boolean
+  order_index: number
+  created_at?: string
+  updated_at?: string
+}
+
 // Утилиты для работы с базой данных
 export const database = {
   // Автомобили
@@ -436,36 +476,180 @@ export const database = {
 
       if (error) throw error
     }
+  },
+
+  // Банки
+  banks: {
+    async getAll(): Promise<Bank[]> {
+      const { data, error } = await supabase
+        .from('banks')
+        .select('*')
+        .order('order_index', { ascending: true })
+
+      if (error) throw error
+      return data || []
+    },
+
+    async getActive(): Promise<Bank[]> {
+      const { data, error } = await supabase
+        .from('banks')
+        .select('*')
+        .eq('is_active', true)
+        .order('order_index', { ascending: true })
+
+      if (error) throw error
+      return data || []
+    },
+
+    async getById(id: string): Promise<Bank | null> {
+      const { data, error } = await supabase
+        .from('banks')
+        .select('*')
+        .eq('id', id)
+        .single()
+
+      if (error) throw error
+      return data
+    },
+
+    async create(bank: Omit<Bank, 'id' | 'created_at' | 'updated_at'>): Promise<Bank> {
+      const { data, error } = await supabase
+        .from('banks')
+        .insert([bank])
+        .select()
+        .single()
+
+      if (error) throw error
+      return data
+    },
+
+    async update(id: string, updates: Partial<Bank>): Promise<Bank> {
+      const { data, error } = await supabase
+        .from('banks')
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (error) throw error
+      return data
+    },
+
+    async delete(id: string): Promise<void> {
+      const { error } = await supabase
+        .from('banks')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+    }
+  },
+
+  // Лизинговые компании
+  leasingCompanies: {
+    async getAll(): Promise<LeasingCompany[]> {
+      const { data, error } = await supabase
+        .from('leasing_companies')
+        .select('*')
+        .order('order_index', { ascending: true })
+
+      if (error) throw error
+      return data || []
+    },
+
+    async getActive(): Promise<LeasingCompany[]> {
+      const { data, error } = await supabase
+        .from('leasing_companies')
+        .select('*')
+        .eq('is_active', true)
+        .order('order_index', { ascending: true })
+
+      if (error) throw error
+      return data || []
+    },
+
+    async getById(id: string): Promise<LeasingCompany | null> {
+      const { data, error } = await supabase
+        .from('leasing_companies')
+        .select('*')
+        .eq('id', id)
+        .single()
+
+      if (error) throw error
+      return data
+    },
+
+    async create(company: Omit<LeasingCompany, 'id' | 'created_at' | 'updated_at'>): Promise<LeasingCompany> {
+      const { data, error } = await supabase
+        .from('leasing_companies')
+        .insert([company])
+        .select()
+        .single()
+
+      if (error) throw error
+      return data
+    },
+
+    async update(id: string, updates: Partial<LeasingCompany>): Promise<LeasingCompany> {
+      const { data, error } = await supabase
+        .from('leasing_companies')
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (error) throw error
+      return data
+    },
+
+    async delete(id: string): Promise<void> {
+      const { error } = await supabase
+        .from('leasing_companies')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+    }
   }
 }
 
 // Утилиты для работы с файлами
 export const storage = {
-  async uploadImage(file: File, bucket: string = 'images'): Promise<string> {
-    const fileName = `${Date.now()}_${file.name}`
+  async uploadImage(file: File, folder: string = 'general'): Promise<string> {
+    const fileName = `${folder}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
 
     const { data, error } = await supabase.storage
-      .from(bucket)
-      .upload(fileName, file)
+      .from('images')
+      .upload(fileName, file, {
+        cacheControl: '3600',
+        upsert: false
+      })
 
     if (error) throw error
 
     const { data: { publicUrl } } = supabase.storage
-      .from(bucket)
+      .from('images')
       .getPublicUrl(fileName)
 
     return publicUrl
   },
 
-  async deleteImage(url: string, bucket: string = 'images'): Promise<void> {
-    // Извлекаем имя файла из URL
-    const fileName = url.split('/').pop()
-    if (!fileName) return
+  async deleteImage(url: string): Promise<void> {
+    // Извлекаем путь файла из URL
+    const urlParts = url.split('/storage/v1/object/public/images/')
+    if (urlParts.length < 2) return
+
+    const filePath = urlParts[1]
 
     const { error } = await supabase.storage
-      .from(bucket)
-      .remove([fileName])
+      .from('images')
+      .remove([filePath])
 
     if (error) throw error
+  },
+
+  async uploadMultipleImages(files: File[], folder: string = 'general'): Promise<string[]> {
+    const uploadPromises = files.map(file => this.uploadImage(file, folder))
+    return Promise.all(uploadPromises)
   }
 }

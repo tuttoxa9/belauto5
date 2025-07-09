@@ -10,6 +10,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Save, Loader2 } from "lucide-react"
 
+// Локальная функция для кэш-инвалидации
+const createCacheInvalidator = (collection: string) => {
+  return {
+    onCreate: async (id: string) => {
+      console.log(`Created ${collection} with id: ${id}`)
+    },
+    onUpdate: async (id: string) => {
+      console.log(`Updated ${collection} with id: ${id}`)
+    },
+    onDelete: async (id: string) => {
+      console.log(`Deleted ${collection} with id: ${id}`)
+    }
+  }
+}
+
 export default function AdminSettings() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)

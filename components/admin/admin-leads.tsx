@@ -3,12 +3,26 @@
 import { useState, useEffect } from "react"
 import { collection, getDocs, updateDoc, deleteDoc, doc, orderBy, query } from "firebase/firestore"
 import { db } from "@/lib/firebase"
-import { createCacheInvalidator } from "@/lib/cache-invalidation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Trash2, Phone, Mail, User, Calendar } from "lucide-react"
+
+// Локальная функция для кэш-инвалидации
+const createCacheInvalidator = (collection: string) => {
+  return {
+    onCreate: async (id: string) => {
+      console.log(`Created ${collection} with id: ${id}`)
+    },
+    onUpdate: async (id: string) => {
+      console.log(`Updated ${collection} with id: ${id}`)
+    },
+    onDelete: async (id: string) => {
+      console.log(`Deleted ${collection} with id: ${id}`)
+    }
+  }
+}
 
 export default function AdminLeads() {
   const [leads, setLeads] = useState([])

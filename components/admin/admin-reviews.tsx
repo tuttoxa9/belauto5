@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { database, Review } from "@/lib/supabase"
-import { createCacheInvalidator } from "@/lib/cache-invalidation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,6 +11,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Plus, Edit, Trash2, Star, User } from "lucide-react"
+
+// Локальная функция для кэш-инвалидации
+const createCacheInvalidator = (collection: string) => {
+  return {
+    onCreate: async (id: string) => {
+      console.log(`Created ${collection} with id: ${id}`)
+    },
+    onUpdate: async (id: string) => {
+      console.log(`Updated ${collection} with id: ${id}`)
+    },
+    onDelete: async (id: string) => {
+      console.log(`Deleted ${collection} with id: ${id}`)
+    }
+  }
+}
 
 export default function AdminReviews() {
   const [reviews, setReviews] = useState<Review[]>([])

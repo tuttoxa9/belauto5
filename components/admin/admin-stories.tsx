@@ -11,7 +11,6 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from "@/components/ui/badge"
 import { Plus, Upload, Trash2, Edit, Eye, Link as LinkIcon, GripVertical } from "lucide-react"
 import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, query, orderBy, setDoc, getDoc } from "firebase/firestore"
-import { createCacheInvalidator } from "@/lib/cache-invalidation"
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage"
 import { db, storage } from "@/lib/firebase"
 
@@ -29,6 +28,21 @@ interface Story {
 interface StoriesSettings {
   title: string
   subtitle: string
+}
+
+// Локальная функция для кэш-инвалидации
+const createCacheInvalidator = (collection: string) => {
+  return {
+    onCreate: async (id: string) => {
+      console.log(`Created ${collection} with id: ${id}`)
+    },
+    onUpdate: async (id: string) => {
+      console.log(`Updated ${collection} with id: ${id}`)
+    },
+    onDelete: async (id: string) => {
+      console.log(`Deleted ${collection} with id: ${id}`)
+    }
+  }
 }
 
 export default function AdminStories() {

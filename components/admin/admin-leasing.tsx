@@ -1,8 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { doc, getDoc, setDoc } from "firebase/firestore"
-import { db } from "@/lib/firebase"
+import { database } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -116,16 +115,16 @@ export default function AdminLeasing() {
 
   const loadLeasingData = async () => {
     try {
-      const leasingDoc = await getDoc(doc(db, "pages", "leasing"))
-      if (leasingDoc.exists()) {
-        const data = leasingDoc.data() as LeasingPageData
+      const data = await database.settings.get("leasing_page")
+      if (data) {
+        const leasingPageData = data as LeasingPageData
         // Убеждаемся, что массивы не undefined
         setLeasingData({
-          ...data,
-          benefits: data.benefits || [],
-          leasingCompanies: data.leasingCompanies || [],
-          conditions: data.conditions || [],
-          additionalNote: data.additionalNote || "Все дополнительные вопросы обсуждаемы с каждым клиентом индивидуально"
+          ...leasingPageData,
+          benefits: leasingPageData.benefits || [],
+          leasingCompanies: leasingPageData.leasingCompanies || [],
+          conditions: leasingPageData.conditions || [],
+          additionalNote: leasingPageData.additionalNote || "Все дополнительные вопросы обсуждаемы с каждым клиентом индивидуально"
         })
       }
     } catch (error) {
@@ -139,7 +138,7 @@ export default function AdminLeasing() {
     try {
       setSaving(true)
       console.log("Saving leasing data:", leasingData)
-      await setDoc(doc(db, "pages", "leasing"), leasingData)
+      await database.settings.set("leasing_page", leasingData)
       alert("Данные успешно сохранены!")
     } catch (error) {
       console.error("Ошибка сохранения:", error)
@@ -222,7 +221,7 @@ export default function AdminLeasing() {
     }
     setLeasingData(defaultData)
     try {
-      await setDoc(doc(db, "pages", "leasing"), defaultData)
+      await database.settings.set("leasing_page", defaultData)
       alert("Данные сброшены к значениям по умолчанию и сохранены!")
     } catch (error) {
       console.error("Ошибка сброса данных:", error)

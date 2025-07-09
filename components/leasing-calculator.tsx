@@ -8,8 +8,7 @@ import { Slider } from "@/components/ui/slider"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Calculator } from "lucide-react"
-import { doc, getDoc } from "firebase/firestore"
-import { db } from "@/lib/firebase"
+import { database } from "@/lib/supabase"
 import { useUsdBynRate } from "@/components/providers/usd-byn-rate-provider"
 import { convertUsdToByn } from "@/lib/utils"
 
@@ -67,20 +66,19 @@ export default function LeasingCalculator() {
 
   const loadCalculatorData = async () => {
     try {
-      const docRef = doc(db, "leasing", "calculator")
-      const docSnap = await getDoc(docRef)
+      const data = await database.settings.get("leasing_calculator")
 
-      if (docSnap.exists()) {
-        const data = docSnap.data() as LeasingCalculatorData
-        setData(data)
+      if (data) {
+        const calculatorData = data as LeasingCalculatorData
+        setData(calculatorData)
 
         // Устанавливаем значения по умолчанию из БД
         setCalculator(prev => ({
           ...prev,
-          carPrice: [data.defaultCarPrice || 50000],
-          advance: [Math.round((data.defaultCarPrice || 50000) * (data.defaultAdvancePercent || 30) / 100)],
-          leasingTerm: [data.defaultTerm || 36],
-          residualValue: [data.defaultResidualPercent || 20],
+          carPrice: [calculatorData.defaultCarPrice || 50000],
+          advance: [Math.round((calculatorData.defaultCarPrice || 50000) * (calculatorData.defaultAdvancePercent || 30) / 100)],
+          leasingTerm: [calculatorData.defaultTerm || 36],
+          residualValue: [calculatorData.defaultResidualPercent || 20],
         }))
       } else {
         // Данные по умолчанию

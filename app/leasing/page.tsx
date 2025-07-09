@@ -10,8 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Slider } from "@/components/ui/slider"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Calculator, Car, CheckCircle, Building, TrendingDown, Shield, DollarSign, Clock, FileText, Users, Zap, Award, Target, Briefcase, TrendingUp, Handshake, CheckSquare, Coins, Timer, Heart, Calendar, Check } from "lucide-react"
-import { doc, getDoc, addDoc, collection, setDoc } from "firebase/firestore"
-import { db } from "@/lib/firebase"
+import { database } from "@/lib/supabase"
 import { getCachedImageUrl } from "@/lib/image-cache"
 import LeasingConditions from "@/components/leasing-conditions"
 import LeasingCalculator from "@/components/leasing-calculator"
@@ -74,13 +73,12 @@ export default function LeasingPage() {
 
   const loadSettings = async () => {
     try {
-      const doc_ref = doc(db, "pages", "leasing")
-      const doc_snap = await getDoc(doc_ref)
+      const data = await database.settings.get("leasing_page")
 
-      if (doc_snap.exists()) {
-        const data = doc_snap.data() as LeasingPageSettings
-        console.log("Loaded leasing data:", data)
-        setSettings(data)
+      if (data) {
+        const leasingData = data as LeasingPageSettings
+        console.log("Loaded leasing data:", leasingData)
+        setSettings(leasingData)
       } else {
         // Default fallback data only if no data exists
         const defaultData: LeasingPageSettings = {
@@ -114,9 +112,9 @@ export default function LeasingPage() {
           additionalNote: "Все дополнительные вопросы обсуждаемы с каждым клиентом индивидуально"
         }
         setSettings(defaultData)
-        // Also save to Firebase for future use
+        // Also save to Supabase for future use
         try {
-          await setDoc(doc(db, "pages", "leasing"), defaultData)
+          await database.settings.set("leasing_page", defaultData)
         } catch (error) {
           console.error("Error saving default data:", error)
         }
@@ -171,20 +169,24 @@ export default function LeasingPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      // Сохраняем в Firebase
-      await addDoc(collection(db, "leads"), {
-        ...leasingForm,
-        type: "leasing_request",
-        status: "new",
-        createdAt: new Date(),
+      const clientName = leasingForm.clientType === "individual"
+        ? leasingForm.fullName
+        : leasingForm.contactPerson;
+
+      // Формируем детальное сообщение с данными лизинговой заявки
+      const detailedMessage = `${leasingForm.message || ''}\n\nДанные лизинговой заявки:\nТип клиента: ${leasingForm.clientType === "individual" ? "Физическое лицо" : "Организация"}\n${leasingForm.clientType === "organization" ? `Название организации: ${leasingForm.companyName}\nУНП: ${leasingForm.unp}\nКонтактное лицо: ${leasingForm.contactPerson}` : `ФИО: ${leasingForm.fullName}`}\nСтоимость автомобиля: ${leasingForm.carPrice} USD\nАвансовый платеж: ${leasingForm.advance} USD\nСрок лизинга: ${leasingForm.leasingTerm} месяцев\nЛизинговая компания: ${leasingForm.company}`
+
+      // Сохраняем в Supabase
+      await database.leads.create({
+        name: clientName,
+        phone: leasingForm.phone,
+        email: leasingForm.email,
+        message: detailedMessage,
+        status: "new"
       })
 
       // Отправляем уведомление в Telegram
       try {
-        const clientName = leasingForm.clientType === "individual"
-          ? leasingForm.fullName
-          : leasingForm.contactPerson;
-
         await fetch('/api/send-telegram', {
           method: 'POST',
           headers: {

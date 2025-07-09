@@ -12,8 +12,7 @@ import CarCard from "@/components/car-card"
 import { Filter, SlidersHorizontal } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import CarCardSkeleton from "@/components/car-card-skeleton"
-import { collection, getDocs } from "firebase/firestore"
-import { db } from "@/lib/firebase"
+import { database } from "@/lib/supabase"
 
 interface Car {
   id: string;
@@ -21,10 +20,10 @@ interface Car {
   model: string;
   year: number;
   price: number;
-  mileage: number;
+  mileage?: number;
   transmission: string;
-  fuelType: string;
-  driveTrain: string;
+  fuel_type: string;
+  drive_train: string;
 }
 
 export default function CatalogPage() {
@@ -55,11 +54,11 @@ export default function CatalogPage() {
         (filters.model === "all" || car.model === filters.model) &&
         (filters.yearFrom === "" || car.year >= Number.parseInt(filters.yearFrom)) &&
         (filters.yearTo === "" || car.year <= Number.parseInt(filters.yearTo)) &&
-        (filters.mileageFrom === "" || car.mileage >= Number.parseInt(filters.mileageFrom)) &&
-        (filters.mileageTo === "" || car.mileage <= Number.parseInt(filters.mileageTo)) &&
+        (filters.mileageFrom === "" || (car.mileage || 0) >= Number.parseInt(filters.mileageFrom)) &&
+        (filters.mileageTo === "" || (car.mileage || 0) <= Number.parseInt(filters.mileageTo)) &&
         (filters.transmission === "any" || car.transmission === filters.transmission) &&
-        (filters.fuelType === "any" || car.fuelType === filters.fuelType) &&
-        (filters.driveTrain === "any" || car.driveTrain === filters.driveTrain)
+        (filters.fuelType === "any" || car.fuel_type === filters.fuelType) &&
+        (filters.driveTrain === "any" || car.drive_train === filters.driveTrain)
       )
     })
 
@@ -75,9 +74,9 @@ export default function CatalogPage() {
         case "year-asc":
           return a.year - b.year
         case "mileage-asc":
-          return a.mileage - b.mileage
+          return (a.mileage || 0) - (b.mileage || 0)
         case "mileage-desc":
-          return b.mileage - a.mileage
+          return (b.mileage || 0) - (a.mileage || 0)
         default:
           return 0
       }
@@ -96,11 +95,7 @@ export default function CatalogPage() {
   const loadCars = async () => {
     try {
       setLoading(true)
-      const snapshot = await getDocs(collection(db, "cars"))
-      const carsData = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }))
+      const carsData = await database.cars.getAll()
       setCars(carsData as Car[])
     } catch (error) {
       console.error("Ошибка загрузки автомобилей:", error)

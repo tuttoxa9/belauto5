@@ -15,13 +15,13 @@ interface CarCardProps {
     model: string
     year: number
     price: number
-    currency: string
-    mileage: number
-    engineVolume: number
-    fuelType: string
-    transmission: string
-    imageUrls: string[]
-    isAvailable: boolean
+    currency?: string
+    mileage?: number
+    engine_volume?: string
+    fuel_type?: string
+    transmission?: string
+    image_urls: string[]
+    is_available: boolean
   }
 }
 
@@ -36,13 +36,14 @@ export default function CarCard({ car }: CarCardProps) {
     }).format(price)
   }
 
-  const formatMileage = (mileage: number) => {
-    return new Intl.NumberFormat("ru-BY").format(mileage)
+  const formatMileage = (mileage?: number) => {
+    return new Intl.NumberFormat("ru-BY").format(mileage || 0)
   }
 
-  const formatEngineVolume = (volume: number) => {
+  const formatEngineVolume = (volume?: string) => {
     // Всегда показываем с одним знаком после запятой (3.0, 2.5, 1.6)
-    return volume.toFixed(1)
+    if (!volume) return "0.0"
+    return typeof volume === 'string' ? volume : Number(volume).toFixed(1)
   }
 
   return (
@@ -52,14 +53,14 @@ export default function CarCard({ car }: CarCardProps) {
         <div className="relative">
           <div className="relative overflow-hidden bg-slate-100">
             <FadeInImage
-              src={car.imageUrls[0] || "/placeholder.svg?height=200&width=280"}
+              src={car.image_urls[0] || "/placeholder.svg?height=200&width=280"}
               alt={`${car.make} ${car.model}`}
               className="w-full h-56 object-cover group-hover:scale-102 transition-transform duration-300"
             />
 
             {/* Status indicator */}
             <div className="absolute top-3 left-3">
-              <div className={`w-2 h-2 rounded-full ${car.isAvailable ? 'bg-emerald-500' : 'bg-red-500'}`}></div>
+              <div className={`w-2 h-2 rounded-full ${car.is_available ? 'bg-emerald-500' : 'bg-red-500'}`}></div>
             </div>
 
             {/* Year */}
@@ -96,7 +97,7 @@ export default function CarCard({ car }: CarCardProps) {
             </div>
             <div className="flex items-center justify-between text-xs">
               <span className="text-slate-600">Двигатель</span>
-              <span className="font-medium text-slate-900">{formatEngineVolume(car.engineVolume)} {car.fuelType}</span>
+              <span className="font-medium text-slate-900">{formatEngineVolume(car.engine_volume)} {car.fuel_type}</span>
             </div>
             <div className="flex items-center justify-between text-xs">
               <span className="text-slate-600">КПП</span>

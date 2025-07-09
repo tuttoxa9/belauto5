@@ -6,8 +6,7 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Image from "next/image"
-import { doc, getDoc, collection, addDoc } from "firebase/firestore"
-import { db } from "@/lib/firebase"
+import { database } from "@/lib/supabase"
 import { getCachedImageUrl } from "@/lib/image-cache"
 import { useUsdBynRate } from "@/components/providers/usd-byn-rate-provider"
 import { convertUsdToByn } from "@/lib/utils"
@@ -83,17 +82,17 @@ interface Car {
   model: string;
   year: number;
   price: number;
-  currency: string;
-  mileage: number;
-  engineVolume: number;
-  fuelType: string;
-  transmission: string;
-  driveTrain: string;
-  bodyType: string;
-  color: string;
-  description: string;
-  imageUrls: string[];
-  isAvailable: boolean;
+  currency?: string;
+  mileage?: number;
+  engine_volume?: string;
+  fuel_type?: string;
+  transmission?: string;
+  drive_train?: string;
+  body_type?: string;
+  color?: string;
+  description?: string;
+  image_urls: string[];
+  is_available: boolean;
   features: string[];
   specifications: Record<string, string>;
 }
@@ -166,9 +165,9 @@ export default function CarDetailsPage() {
   const loadPartnerBanks = async () => {
     try {
       setLoadingBanks(true)
-      const creditDoc = await getDoc(doc(db, "pages", "credit"))
-      if (creditDoc.exists() && creditDoc.data()?.partners) {
-        const partners = creditDoc.data()?.partners
+      const creditData = await database.settings.get('credit_page')
+      if (creditData?.partners) {
+        const partners = creditData.partners
         // Convert partners to the format we need
         const formattedPartners = partners.map((partner: any, index: number) => ({
           id: index + 1,
@@ -186,7 +185,7 @@ export default function CarDetailsPage() {
           setSelectedBank(formattedPartners[0])
         }
       } else {
-        console.warn("Банки-партнеры не найдены в Firestore")
+        console.warn("Банки-партнеры не найдены в Supabase")
         setPartnerBanks([])
       }
     } catch (error) {
@@ -199,10 +198,9 @@ export default function CarDetailsPage() {
 
   const loadContactData = async () => {
     try {
-      const contactsDoc = await getDoc(doc(db, "pages", "contacts"))
-      if (contactsDoc.exists()) {
-        const data = contactsDoc.data()
-        setContactPhone(data?.phone || "+375 29 123-45-67")
+      const contactData = await database.contacts.get()
+      if (contactData?.phone) {
+        setContactPhone(contactData.phone)
       } else {
         setContactPhone("+375 29 123-45-67") // fallback phone
       }
@@ -215,9 +213,8 @@ export default function CarDetailsPage() {
   const loadCarData = async (carId: string) => {
     try {
       setLoading(true)
-      const carDoc = await getDoc(doc(db, "cars", carId))
-      if (carDoc.exists()) {
-        const carData = { id: carDoc.id, ...carDoc.data() }
+      const carData = await database.cars.getById(carId)
+      if (carData) {
         setCar(carData as Car)
         setCarNotFound(false)
         // Устанавливаем значения калькулятора по умолчанию
@@ -299,9 +296,9 @@ export default function CarDetailsPage() {
     return new Intl.NumberFormat("ru-BY").format(mileage)
   }
 
-  const formatEngineVolume = (volume: number) => {
+  const formatEngineVolume = (volume: string | number) => {
     // Всегда показываем с одним знаком после запятой (3.0, 2.5, 1.6)
-    return volume.toFixed(1)
+    return typeof volume === 'string' ? volume : volume.toFixed(1)
   }
 
   const formatPhoneNumber = (value: string) => {
@@ -338,13 +335,12 @@ export default function CarDetailsPage() {
   const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      await addDoc(collection(db, "leads"), {
-        ...bookingForm,
-        carId: params.id,
-        carInfo: `${car?.make} ${car?.model} ${car?.year}`,
-        type: "booking",
-        status: "new",
-        createdAt: new Date(),
+      await database.leads.create({
+        name: bookingForm.name,
+        phone: bookingForm.phone,
+        message: bookingForm.message,
+        car_id: params.id as string,
+        status: "new"
       })
       // Отправляем уведомление в Telegram
       try {
@@ -379,13 +375,11 @@ export default function CarDetailsPage() {
   const handleCallbackSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      await addDoc(collection(db, "leads"), {
-        ...callbackForm,
-        carId: params.id,
-        carInfo: `${car?.make} ${car?.model} ${car?.year}`,
-        type: "callback",
-        status: "new",
-        createdAt: new Date(),
+      await database.leads.create({
+        name: callbackForm.name,
+        phone: callbackForm.phone,
+        car_id: params.id as string,
+        status: "new"
       })
       // Отправляем уведомление в Telegram
       await fetch('/api/send-telegram', {
@@ -411,20 +405,13 @@ export default function CarDetailsPage() {
   const handleCreditSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      // Сохраняем в Firestore
-      await addDoc(collection(db, "leads"), {
-        ...creditForm,
-        carId: params.id,
-        carInfo: `${car?.make} ${car?.model} ${car?.year}`,
-        type: "credit",
-        status: "new",
-        createdAt: new Date(),
-        creditAmount: getCurrentCreditAmount(),
-        downPayment: getCurrentDownPayment(),
-        loanTerm: loanTerm[0],
-        selectedBank: selectedBank?.name || "",
-        monthlyPayment: calculateMonthlyPayment(),
-        currency: isBelarusianRubles ? "BYN" : "USD"
+      // Сохраняем в Supabase
+      await database.leads.create({
+        name: creditForm.name,
+        phone: creditForm.phone,
+        message: creditForm.message,
+        car_id: params.id as string,
+        status: "new"
       })
 
       // Отправляем уведомление в Telegram
@@ -463,11 +450,11 @@ export default function CarDetailsPage() {
   }
 
   const nextImage = () => {
-    setCurrentImageIndex((prev) => (prev + 1) % (car?.imageUrls?.length || 1))
+    setCurrentImageIndex((prev) => (prev + 1) % (car?.image_urls?.length || 1))
   }
 
   const prevImage = () => {
-    setCurrentImageIndex((prev) => (prev - 1 + (car?.imageUrls?.length || 1)) % (car?.imageUrls?.length || 1))
+    setCurrentImageIndex((prev) => (prev - 1 + (car?.image_urls?.length || 1)) % (car?.image_urls?.length || 1))
   }
 
   // Минимальное расстояние для свайпа
@@ -488,10 +475,10 @@ export default function CarDetailsPage() {
     const isLeftSwipe = distance > minSwipeDistance
     const isRightSwipe = distance < -minSwipeDistance
 
-    if (isLeftSwipe && car?.imageUrls && car.imageUrls.length > 1) {
+    if (isLeftSwipe && car?.image_urls && car.image_urls.length > 1) {
       nextImage()
     }
-    if (isRightSwipe && car?.imageUrls && car.imageUrls.length > 1) {
+    if (isRightSwipe && car?.image_urls && car.image_urls.length > 1) {
       prevImage()
     }
   }
@@ -547,7 +534,7 @@ export default function CarDetailsPage() {
                 <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">
                   {car.make} {car.model}
                 </h1>
-                {car.isAvailable ? (
+                {car.is_available ? (
                   <Badge className="bg-green-100 text-green-700 border-green-200">
                     В наличии
                   </Badge>
@@ -557,7 +544,7 @@ export default function CarDetailsPage() {
                   </Badge>
                 )}
               </div>
-              <p className="text-slate-600">{car.year} год • {car.color} • {car.bodyType}</p>
+              <p className="text-slate-600">{car.year} год • {car.color} • {car.body_type}</p>
             </div>
 
             {/* Правая часть: Цена */}
@@ -593,14 +580,14 @@ export default function CarDetailsPage() {
                   onTouchEnd={onTouchEnd}
                 >
                   <Image
-                    src={getCachedImageUrl(car.imageUrls?.[currentImageIndex] || "/placeholder.svg")}
+                    src={getCachedImageUrl(car.image_urls?.[currentImageIndex] || "/placeholder.svg")}
                     alt={`${car.make} ${car.model}`}
                     fill
                     className="object-contain bg-gradient-to-br from-slate-50 to-slate-100"
                   />
 
                   {/* Навигация по фотографиям */}
-                  {car.imageUrls && car.imageUrls.length > 1 && (
+                  {car.image_urls && car.image_urls.length > 1 && (
                     <>
                       <Button
                         variant="secondary"
@@ -621,21 +608,21 @@ export default function CarDetailsPage() {
                     </>
                   )}
                   {/* Индикатор текущего фото */}
-                  {car.imageUrls && car.imageUrls.length > 1 && (
+                  {car.image_urls && car.image_urls.length > 1 && (
                     <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
                       <div className="bg-black/50 backdrop-blur-sm rounded-full px-3 py-1">
                         <span className="text-white text-sm font-medium">
-                          {currentImageIndex + 1} / {car.imageUrls.length}
+                          {currentImageIndex + 1} / {car.image_urls.length}
                         </span>
                       </div>
                     </div>
                   )}
                 </div>
                 {/* Миниатюры */}
-                {car.imageUrls && car.imageUrls.length > 1 && (
+                {car.image_urls && car.image_urls.length > 1 && (
                   <div className="p-4 bg-slate-50">
                     <div className="flex space-x-2 overflow-x-auto">
-                      {car.imageUrls.map((url, index) => (
+                      {car.image_urls.map((url, index) => (
                         <button
                           key={index}
                           onClick={() => setCurrentImageIndex(index)}
@@ -669,13 +656,13 @@ export default function CarDetailsPage() {
                   <div className="bg-slate-50 border border-slate-200 rounded-lg p-2 text-center">
                     <Gauge className="h-4 w-4 text-slate-600 mx-auto mb-1" />
                     <div className="text-xs text-slate-600 font-medium mb-1">Пробег</div>
-                    <div className="font-bold text-slate-900 text-xs">{formatMileage(car.mileage)} км</div>
+                    <div className="font-bold text-slate-900 text-xs">{formatMileage(car.mileage || 0)} км</div>
                   </div>
                   <div className="bg-slate-50 border border-slate-200 rounded-lg p-2 text-center">
                     <Fuel className="h-4 w-4 text-slate-600 mx-auto mb-1" />
                     <div className="text-xs text-slate-600 font-medium mb-1">Двигатель</div>
                     <div className="font-bold text-slate-900 text-xs leading-tight">
-                      {formatEngineVolume(car.engineVolume)}<br/>{car.fuelType}
+                      {formatEngineVolume(car.engine_volume || "0")}<br/>{car.fuel_type}
                     </div>
                   </div>
                   <div className="bg-slate-50 border border-slate-200 rounded-lg p-2 text-center">
@@ -686,7 +673,7 @@ export default function CarDetailsPage() {
                   <div className="bg-slate-50 border border-slate-200 rounded-lg p-2 text-center">
                     <Car className="h-4 w-4 text-slate-600 mx-auto mb-1" />
                     <div className="text-xs text-slate-600 font-medium mb-1">Привод</div>
-                    <div className="font-bold text-slate-900 text-xs">{car.driveTrain}</div>
+                    <div className="font-bold text-slate-900 text-xs">{car.drive_train}</div>
                   </div>
                 </div>
 
@@ -800,12 +787,12 @@ export default function CarDetailsPage() {
                   <div className="text-center p-3 bg-slate-50 border border-slate-200 rounded-lg">
                     <Gauge className="h-5 w-5 text-slate-600 mx-auto mb-2" />
                     <div className="text-xs text-slate-600 font-medium mb-1">Пробег</div>
-                    <div className="font-bold text-slate-900 text-sm">{formatMileage(car.mileage)} км</div>
+                    <div className="font-bold text-slate-900 text-sm">{formatMileage(car.mileage || 0)} км</div>
                   </div>
                   <div className="text-center p-3 bg-slate-50 border border-slate-200 rounded-lg">
                     <Fuel className="h-5 w-5 text-slate-600 mx-auto mb-2" />
                     <div className="text-xs text-slate-600 font-medium mb-1">Двигатель</div>
-                    <div className="font-bold text-slate-900 text-sm">{formatEngineVolume(car.engineVolume)} {car.fuelType}</div>
+                    <div className="font-bold text-slate-900 text-sm">{formatEngineVolume(car.engine_volume || "0")} {car.fuel_type}</div>
                   </div>
                   <div className="text-center p-3 bg-slate-50 border border-slate-200 rounded-lg">
                     <Settings className="h-5 w-5 text-slate-600 mx-auto mb-2" />
@@ -815,7 +802,7 @@ export default function CarDetailsPage() {
                   <div className="text-center p-3 bg-slate-50 border border-slate-200 rounded-lg">
                     <Car className="h-5 w-5 text-slate-600 mx-auto mb-2" />
                     <div className="text-xs text-slate-600 font-medium mb-1">Привод</div>
-                    <div className="font-bold text-slate-900 text-sm">{car.driveTrain}</div>
+                    <div className="font-bold text-slate-900 text-sm">{car.drive_train}</div>
                   </div>
                 </div>
 

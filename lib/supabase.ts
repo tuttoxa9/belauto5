@@ -244,6 +244,8 @@ export const database = {
           key,
           value,
           updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'key'
         })
 
       if (error) throw error
@@ -430,6 +432,8 @@ export const database = {
           page_type: 'contacts',
           content: contactData,
           updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'page_type'
         })
 
       if (error) throw error

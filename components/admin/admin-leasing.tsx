@@ -137,12 +137,12 @@ export default function AdminLeasing() {
   const saveLeasingData = async () => {
     try {
       setSaving(true)
-      console.log("Saving leasing data:", leasingData)
+      console.log("Сохраняем данные лизинга:", leasingData)
       await database.settings.set("leasing_page", leasingData)
       alert("Данные успешно сохранены!")
     } catch (error) {
       console.error("Ошибка сохранения:", error)
-      alert("Ошибка при сохранении данных")
+      alert(`Ошибка при сохранении данных: ${error.message || error}`)
     } finally {
       setSaving(false)
     }

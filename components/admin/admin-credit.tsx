@@ -80,11 +80,12 @@ export default function AdminCredit() {
   const saveCreditData = async () => {
     setSaving(true)
     try {
+      console.log("Сохраняем данные кредита:", creditData)
       await database.settings.set("credit_page", creditData)
       alert("Данные сохранены!")
     } catch (error) {
       console.error("Ошибка сохранения:", error)
-      alert("Ошибка сохранения данных")
+      alert(`Ошибка сохранения данных: ${error.message || error}`)
     } finally {
       setSaving(false)
     }

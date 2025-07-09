@@ -80,12 +80,13 @@ export default function AdminContacts() {
   const saveContactsData = async () => {
     setSaving(true)
     try {
+      console.log("Сохраняем данные контактов:", contactsData)
       await database.contacts.set(contactsData)
       await cacheInvalidator.onUpdate('contacts')
       alert("Данные сохранены!")
     } catch (error) {
       console.error("Ошибка сохранения:", error)
-      alert("Ошибка сохранения данных")
+      alert(`Ошибка сохранения данных: ${error.message || error}`)
     } finally {
       setSaving(false)
     }

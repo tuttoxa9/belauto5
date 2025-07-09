@@ -1,19 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { collection, query, where, orderBy, getDocs } from "firebase/firestore"
-import { db } from "@/lib/firebase"
+import { database, Review } from "@/lib/supabase"
 import { Card, CardContent } from "@/components/ui/card"
 import { Star, User } from "lucide-react"
-
-interface Review {
-  id: string
-  name: string
-  rating: number
-  text: string
-  carModel?: string
-  createdAt: Date
-}
 
 export default function ReviewsPage() {
   const [reviews, setReviews] = useState<Review[]>([])
@@ -25,18 +15,7 @@ export default function ReviewsPage() {
 
   const loadReviews = async () => {
     try {
-      const reviewsQuery = query(
-        collection(db, "reviews"),
-        where("status", "==", "published"),
-        orderBy("createdAt", "desc"),
-      )
-      const snapshot = await getDocs(reviewsQuery)
-      const reviewsData = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate() || new Date(),
-      })) as Review[]
-
+      const reviewsData = await database.reviews.getPublished()
       setReviews(reviewsData)
     } catch (error) {
       console.error("Ошибка загрузки отзывов:", error)
@@ -137,14 +116,10 @@ export default function ReviewsPage() {
                     </div>
                   </div>
 
-                  {review.carModel && (
-                    <p className="text-sm text-blue-600 font-medium mb-2">Автомобиль: {review.carModel}</p>
-                  )}
-
-                  <p className="text-gray-700 mb-4 leading-relaxed">{review.text}</p>
+                  <p className="text-gray-700 mb-4 leading-relaxed">{review.content}</p>
 
                   <p className="text-xs text-gray-500">
-                    {review.createdAt.toLocaleDateString("ru-RU", {
+                    {new Date(review.created_at || '').toLocaleDateString("ru-RU", {
                       year: "numeric",
                       month: "long",
                       day: "numeric",

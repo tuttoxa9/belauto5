@@ -1,8 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy, query } from "firebase/firestore"
-import { db } from "@/lib/firebase"
+import { database, Review } from "@/lib/supabase"
 import { createCacheInvalidator } from "@/lib/cache-invalidation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,17 +14,16 @@ import { Badge } from "@/components/ui/badge"
 import { Plus, Edit, Trash2, Star, User } from "lucide-react"
 
 export default function AdminReviews() {
-  const [reviews, setReviews] = useState([])
+  const [reviews, setReviews] = useState<Review[]>([])
   const [loading, setLoading] = useState(true)
-  const [editingReview, setEditingReview] = useState(null)
+  const [editingReview, setEditingReview] = useState<Review | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const cacheInvalidator = createCacheInvalidator('reviews')
   const [reviewForm, setReviewForm] = useState({
     name: "",
     rating: 5,
-    text: "",
-    carModel: "",
-    status: "published",
+    content: "",
+    is_published: true,
   })
 
   useEffect(() => {
@@ -34,13 +32,7 @@ export default function AdminReviews() {
 
   const loadReviews = async () => {
     try {
-      const reviewsQuery = query(collection(db, "reviews"), orderBy("createdAt", "desc"))
-      const snapshot = await getDocs(reviewsQuery)
-      const reviewsData = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate() || new Date(),
-      }))
+      const reviewsData = await database.reviews.getAll()
       setReviews(reviewsData)
     } catch (error) {
       console.error("Ошибка загрузки отзывов:", error)
@@ -49,22 +41,22 @@ export default function AdminReviews() {
     }
   }
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
       const reviewData = {
-        ...reviewForm,
+        name: reviewForm.name,
+        content: reviewForm.content,
         rating: Number(reviewForm.rating),
-        createdAt: editingReview ? editingReview.createdAt : new Date(),
-        updatedAt: new Date(),
+        is_published: reviewForm.is_published,
       }
 
       if (editingReview) {
-        await updateDoc(doc(db, "reviews", editingReview.id), reviewData)
+        await database.reviews.update(editingReview.id, reviewData)
         await cacheInvalidator.onUpdate(editingReview.id)
       } else {
-        const docRef = await addDoc(collection(db, "reviews"), reviewData)
-        await cacheInvalidator.onCreate(docRef.id)
+        const newReview = await database.reviews.create(reviewData)
+        await cacheInvalidator.onCreate(newReview.id)
       }
 
       setIsDialogOpen(false)
@@ -77,22 +69,21 @@ export default function AdminReviews() {
     }
   }
 
-  const handleEdit = (review) => {
+  const handleEdit = (review: Review) => {
     setEditingReview(review)
     setReviewForm({
       name: review.name,
       rating: review.rating,
-      text: review.text,
-      carModel: review.carModel || "",
-      status: review.status,
+      content: review.content,
+      is_published: review.is_published,
     })
     setIsDialogOpen(true)
   }
 
-  const handleDelete = async (reviewId) => {
+  const handleDelete = async (reviewId: string) => {
     if (confirm("Удалить этот отзыв?")) {
       try {
-        await deleteDoc(doc(db, "reviews", reviewId))
+        await database.reviews.delete(reviewId)
         await cacheInvalidator.onDelete(reviewId)
         loadReviews()
       } catch (error) {
@@ -106,39 +97,20 @@ export default function AdminReviews() {
     setReviewForm({
       name: "",
       rating: 5,
-      text: "",
-      carModel: "",
-      status: "published",
+      content: "",
+      is_published: true,
     })
   }
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "published":
-        return "bg-green-100 text-green-800"
-      case "pending":
-        return "bg-yellow-100 text-yellow-800"
-      case "rejected":
-        return "bg-red-100 text-red-800"
-      default:
-        return "bg-gray-100 text-gray-800"
-    }
+  const getStatusColor = (isPublished: boolean) => {
+    return isPublished ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
   }
 
-  const getStatusText = (status) => {
-    switch (status) {
-      case "published":
-        return "Опубликован"
-      case "pending":
-        return "На модерации"
-      case "rejected":
-        return "Отклонен"
-      default:
-        return status
-    }
+  const getStatusText = (isPublished: boolean) => {
+    return isPublished ? "Опубликован" : "Скрыт"
   }
 
-  const renderStars = (rating) => {
+  const renderStars = (rating: number) => {
     return Array.from({ length: 5 }, (_, i) => (
       <Star key={i} className={`h-4 w-4 ${i < rating ? "text-yellow-400 fill-current" : "text-gray-300"}`} />
     ))
@@ -203,19 +175,10 @@ export default function AdminReviews() {
               </div>
 
               <div>
-                <Label className="text-white">Модель автомобиля (опционально)</Label>
-                <Input
-                  value={reviewForm.carModel}
-                  onChange={(e) => setReviewForm({ ...reviewForm, carModel: e.target.value })}
-                  className="bg-slate-700 border-slate-600 text-white"
-                />
-              </div>
-
-              <div>
                 <Label className="text-white">Текст отзыва</Label>
                 <Textarea
-                  value={reviewForm.text}
-                  onChange={(e) => setReviewForm({ ...reviewForm, text: e.target.value })}
+                  value={reviewForm.content}
+                  onChange={(e) => setReviewForm({ ...reviewForm, content: e.target.value })}
                   className="bg-slate-700 border-slate-600 text-white"
                   rows={4}
                   required
@@ -225,16 +188,15 @@ export default function AdminReviews() {
               <div>
                 <Label className="text-white">Статус</Label>
                 <Select
-                  value={reviewForm.status}
-                  onValueChange={(value) => setReviewForm({ ...reviewForm, status: value })}
+                  value={reviewForm.is_published.toString()}
+                  onValueChange={(value) => setReviewForm({ ...reviewForm, is_published: value === "true" })}
                 >
                   <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-slate-700 border-slate-600">
-                    <SelectItem value="published">Опубликован</SelectItem>
-                    <SelectItem value="pending">На модерации</SelectItem>
-                    <SelectItem value="rejected">Отклонен</SelectItem>
+                    <SelectItem value="true">Опубликован</SelectItem>
+                    <SelectItem value="false">Скрыт</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -266,11 +228,10 @@ export default function AdminReviews() {
                   <div className="flex items-center space-x-3 mb-2">
                     <h3 className="font-semibold text-white">{review.name}</h3>
                     <div className="flex">{renderStars(review.rating)}</div>
-                    <Badge className={getStatusColor(review.status)}>{getStatusText(review.status)}</Badge>
+                    <Badge className={getStatusColor(review.is_published)}>{getStatusText(review.is_published)}</Badge>
                   </div>
-                  {review.carModel && <p className="text-sm text-slate-400 mb-2">Автомобиль: {review.carModel}</p>}
-                  <p className="text-slate-300 mb-3">{review.text}</p>
-                  <p className="text-xs text-slate-500">{review.createdAt.toLocaleDateString("ru-RU")}</p>
+                  <p className="text-slate-300 mb-3">{review.content}</p>
+                  <p className="text-xs text-slate-500">{new Date(review.created_at || '').toLocaleDateString("ru-RU")}</p>
                 </div>
                 <div className="flex space-x-2 ml-4">
                   <Button
